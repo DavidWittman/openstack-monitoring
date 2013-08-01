@@ -20,12 +20,21 @@ include_recipe "monitoring"
 if node.recipe?("keystone::keystone-api")
   platform_options = node["keystone"]["platform"]
   ks_service_endpoint = get_access_endpoint("keystone-api", "keystone", "service-api")
+
+  ks_real_service_endpoint = get_realserver_endpoints("keystone-api", "keystone", "service-api")[0]
+  ks_real_admin_endpoint = get_realserver_endpoints("keystone-api", "keystone", "admin-api")[0]
+
   unless ks_service_endpoint["scheme"] == "https"
     monitoring_procmon "keystone" do
       procname=platform_options["keystone_service"]
       sname=platform_options["keystone_process_name"]
       process_name sname
       script_name procname
+      rules [
+              "if failed host #{ks_real_service_endpoint['host']} port #{ks_real_service_endpoint['port']} protocol HTTP then restart",
+              "if failed host #{ks_real_admin_endpoint['host']} port #{ks_real_admin_endpoint['port']} protocol HTTP then restart",
+              "if 5 restarts within 5 cycles then timeout"
+      ]
     end
   end
 
